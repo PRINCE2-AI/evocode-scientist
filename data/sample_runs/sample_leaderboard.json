@@ -1,0 +1,8 @@
+[
+  {
+    "problem_id": "bin_packing",
+    "generation": 0,
+    "strategy": "baseline_seed",
+    "score": 0.87
+  }
+]
