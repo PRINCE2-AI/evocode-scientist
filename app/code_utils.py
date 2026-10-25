@@ -5,31 +5,48 @@ import hashlib
 import re
 
 
-FORBIDDEN_IMPORTS = {
-    "asyncio",
-    "ctypes",
-    "multiprocessing",
-    "os",
-    "pathlib",
-    "pickle",
-    "shutil",
-    "signal",
-    "socket",
-    "subprocess",
-    "sys",
-    "threading",
+ALLOWED_IMPORTS = {
+    "bisect",
+    "collections",
+    "functools",
+    "heapq",
+    "itertools",
+    "math",
+    "statistics",
 }
 
 FORBIDDEN_CALLS = {
     "__import__",
+    "breakpoint",
     "compile",
+    "delattr",
+    "dir",
     "eval",
     "exec",
+    "getattr",
     "globals",
+    "help",
     "input",
     "locals",
     "open",
+    "setattr",
     "vars",
+}
+
+FORBIDDEN_NAMES = {
+    "__builtins__",
+    "builtins",
+    "importlib",
+    "operator",
+    "subprocess",
+    "sys",
+    "typing",
+}
+
+FORBIDDEN_ATTRIBUTES = {
+    "format",
+    "format_map",
+    "mro",
 }
 
 
@@ -42,6 +59,14 @@ def extract_code(text: str) -> str:
     return match.group(1).strip() if match else text.strip()
 
 
+def _unsafe_binding(name: str, asname: str | None) -> bool:
+    if name.startswith("_") or name in FORBIDDEN_NAMES:
+        return True
+    if asname is None:
+        return False
+    return asname.startswith("_") or asname in FORBIDDEN_NAMES
+
+
 def validate_candidate_code(code: str, function_name: str = "solve") -> tuple[bool, str]:
     try:
         tree = ast.parse(code)
@@ -50,13 +75,23 @@ def validate_candidate_code(code: str, function_name: str = "solve") -> tuple[bo
 
     has_function = False
     for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            names = [alias.name.split(".")[0] for alias in node.names]
-            if isinstance(node, ast.ImportFrom) and node.module:
-                names.append(node.module.split(".")[0])
-            blocked = sorted(set(names) & FORBIDDEN_IMPORTS)
+        if isinstance(node, ast.Import):
+            modules = [alias.name.split(".")[0] for alias in node.names]
+            blocked = sorted(set(modules) - ALLOWED_IMPORTS)
             if blocked:
                 return False, f"forbidden import: {', '.join(blocked)}"
+            for alias in node.names:
+                if _unsafe_binding(alias.name, alias.asname):
+                    return False, f"forbidden binding: {alias.asname or alias.name}"
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                return False, "relative imports are forbidden"
+            module = (node.module or "").split(".")[0]
+            if module not in ALLOWED_IMPORTS:
+                return False, f"forbidden import: {module or '<missing module>'}"
+            for alias in node.names:
+                if _unsafe_binding(alias.name, alias.asname):
+                    return False, f"forbidden binding: {alias.asname or alias.name}"
         if isinstance(node, ast.Call):
             name = ""
             if isinstance(node.func, ast.Name):
@@ -65,8 +100,14 @@ def validate_candidate_code(code: str, function_name: str = "solve") -> tuple[bo
                 name = node.func.attr
             if name in FORBIDDEN_CALLS:
                 return False, f"forbidden call: {name}"
-        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
-            return False, "dunder attribute access is forbidden"
+        if isinstance(node, ast.Attribute) and (
+            node.attr.startswith("_")
+            or node.attr in FORBIDDEN_ATTRIBUTES
+            or node.attr in FORBIDDEN_NAMES
+        ):
+            return False, f"forbidden attribute access: {node.attr}"
+        if isinstance(node, ast.Name) and node.id in FORBIDDEN_NAMES:
+            return False, f"forbidden name: {node.id}"
         if isinstance(node, ast.FunctionDef) and node.name == function_name:
             has_function = True
 

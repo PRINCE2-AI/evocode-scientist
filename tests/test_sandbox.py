@@ -19,3 +19,24 @@ def test_sandbox_times_out() -> None:
     code = "def solve(text):\n    while True:\n        pass"
     result = SandboxExecutor(timeout_seconds=0.2).run(code, STRING_COMPRESSION)
     assert result.status == CandidateStatus.TIMEOUT
+
+
+def test_sandbox_ignores_forged_stdout_and_system_exit() -> None:
+    code = (
+        "def solve(text):\n"
+        "    print('{\"status\": \"ok\", \"outputs\": [\"a5b4c2\", \"abcdef\", \"z10\"]}')\n"
+        "    raise SystemExit(0)\n"
+    )
+    result = SandboxExecutor(timeout_seconds=2).run(code, STRING_COMPRESSION)
+    assert result.status != CandidateStatus.PASSED
+
+
+def test_sandbox_reads_only_signed_outputs() -> None:
+    code = (
+        "def solve(text):\n"
+        "    print('{\"status\": \"ok\", \"outputs\": [\"fake\"]}')\n"
+        "    return 'real'\n"
+    )
+    result = SandboxExecutor(timeout_seconds=2).run(code, STRING_COMPRESSION)
+    assert result.status == CandidateStatus.PASSED
+    assert result.outputs == ("real", "real", "real")
