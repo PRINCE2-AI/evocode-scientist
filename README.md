@@ -26,12 +26,14 @@ $ python demo.py
   "problem_id": "bin_packing",
   "metrics": {
     "candidate_count": 7.0,
-    "best_score": 0.9311,
-    "avg_score": 0.9282,
+    "best_score": 0.961,
+    "avg_score": 0.9585,
     "passed_count": 7.0
   }
 }
 ```
+
+Exact scores move by roughly ±0.005 between runs because the score includes the measured subprocess runtime; the candidate count and correctness checks do not change.
 
 The default demo runs without paid APIs. If `OPENAI_API_KEY` is set, the same loop can request model-generated candidate mutations and still evaluate them through the same sandbox and benchmark gates.
 
@@ -168,7 +170,7 @@ Every generated program is evaluated as a candidate, not trusted as an answer. T
 - `score`: weighted correctness and quality with a runtime penalty
 - `lineage`: parent candidate IDs, generation, strategy, prompt, and model
 
-The sample `bin_packing` smoke run currently reaches a deterministic best score around `0.93` on the bundled mini benchmark. Treat this as a small reproducibility check, not a general research benchmark.
+The sample `bin_packing` smoke run reliably passes all 7 candidates and scores about `0.96` (observed `0.958–0.965` across runs) on the bundled mini benchmark. The candidates and correctness checks are deterministic; the small score drift comes from the measured runtime penalty. Treat this as a small reproducibility check, not a general research benchmark.
 
 ## Configuration
 
