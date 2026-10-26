@@ -47,7 +47,7 @@ BIN_PACKING = ProblemSpec(
     function_name="solve",
     tests=(
         {"args": [[4, 8, 1, 4, 2, 1], 10], "expected": None, "optimal_bins": 2},
-        {"args": [[9, 8, 2, 2, 5, 4], 10], "expected": None, "optimal_bins": 3},
+        {"args": [[9, 8, 2, 2, 5, 4], 10], "expected": None, "optimal_bins": 4},
     ),
     baseline_code=BIN_PACKING_BASELINE,
     scorer=bin_packing_score,
